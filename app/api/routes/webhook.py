@@ -32,7 +32,7 @@ async def process_whatsapp_message(user_phone_number: str, text_body: str):
     Background task to generate and send reply
     """
     try:
-        ai_response = await generate_reply(text_body)
+        ai_response = await generate_reply(user_phone_number, text_body)
         await send_whatsapp_message(to_number=user_phone_number, text=ai_response)
     except Exception as e:
         logger.error(f"Error in background processing: {e}")

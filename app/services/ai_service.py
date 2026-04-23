@@ -1,6 +1,9 @@
 from openai import AsyncOpenAI
 from app.core.config import settings
 import logging
+import json
+import re
+from app.services.memory_service import get_chat_history, add_message_to_session, save_accident_data
 
 logger = logging.getLogger(__name__)
 
@@ -11,33 +14,115 @@ client = AsyncOpenAI(
     base_url="https://api.groq.com/openai/v1"
 )
 
-async def generate_reply(user_message: str) -> str:
+SYSTEM_PROMPT = """
+You are a helpful triage assistant for a 'Rapid Care' smart ambulance system. 
+Your goal is to gather the following details from the reporter:
+- location
+- landmark
+- injured_count (number)
+- accident_type
+- conscious (yes/no)
+- breathing_status (yes/no)
+- bleeding_status (heavy/moderate/none)
+- injury_type
+- mobility (yes/no)
+
+RULES:
+1. Keep questions VERY short and to the point. No medical jargon.
+2. Ask ONE question at a time.
+3. Give options (like yes/no) when possible.
+4. Allow skipping optional questions.
+
+CRITICAL OPTIMIZED FLOW:
+If a CRITICAL condition is detected (e.g., unconscious, not breathing, heavy bleeding):
+- You MUST SKIP the remaining optional questions (accident_type, injury_type, mobility).
+- HOWEVER, you CANNOT skip 'location', 'landmark', and 'injured_count'. You must gather these 3 fields even if it is a critical emergency.
+- Once you have the 3 mandatory fields AND (either all fields OR a critical condition is met), stop asking questions.
+
+WHEN YOU ARE READY TO DISPATCH (i.e. you have all info OR hit the critical flow with mandatory fields):
+You MUST output a JSON block in your response containing the gathered data.
+The JSON block MUST be formatted EXACTLY like this (use your gathered data):
+```json
+{
+  "location": "...",
+  "accident_type": "...",
+  "injured_count": 2,
+  "conscious": "no",
+  "breathing_status": "yes",
+  "bleeding_status": "heavy",
+  "injury_type": "head injury",
+  "mobility": "no",
+  "landmark": "near metro station"
+}
+```
+If you haven't gathered enough details to dispatch yet, do NOT output the JSON block, just ask the next question.
+"""
+
+async def generate_reply(phone_number: str, user_message: str) -> str:
     """
-    Generates a reply from the AI model based on the user's message.
+    Generates a reply from the AI model based on the user's message and chat history.
+    Extracts JSON if present and saves it to the database.
     """
     try:
+        # 1. Add user message to DB
+        await add_message_to_session(phone_number, "user", user_message)
+
+        # 2. Get history
+        history = await get_chat_history(phone_number)
+        
+        # 3. Build messages array
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        for msg in history:
+            messages.append({"role": msg["role"], "content": msg["content"]})
+
         response = await client.chat.completions.create(
-            # Switch to another model if needed. Groq uses "llama3-70b-8192" 
-            # or the user requested string: "openai/gpt-oss-120b"
-            model="openai/gpt-oss-120b",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a helpful triage assistant for a 'Rapid Care' smart ambulance system. "
-                        "When users report an accident, quickly gather details about the location, "
-                        "type of accident, and severity. Keep your responses short and to the point."
-                    )
-                },
-                {
-                    "role": "user",
-                    "content": user_message
-                }
-            ],
-            max_tokens=150,
-            temperature=0.3
+            model="openai/gpt-oss-120b", # Switched to Groq standard model for compatibility
+            messages=messages,
+            max_tokens=300,
+            temperature=0.2
         )
-        return response.choices[0].message.content.strip()
+        
+        # Handle case where model returns None or empty
+        raw_content = response.choices[0].message.content
+        if not raw_content:
+            logger.warning("LLM returned an empty response. Using fallback.")
+            ai_response_text = "Thank you. We are processing your request. Please hold on."
+        else:
+            ai_response_text = raw_content.strip()
+
+            if not ai_response_text:
+                ai_response_text = "Thank you. We are processing your request. Please hold on."
+
+        # 4. Check for JSON block (more robust regex that handles optional 'json' tag)
+        json_pattern = re.compile(r'```(?:json)?\s*(\{.*?\})\s*```', re.DOTALL)
+        match = json_pattern.search(ai_response_text)
+        
+        if match:
+            json_str = match.group(1)
+            try:
+                data = json.loads(json_str)
+                # Save to database
+                await save_accident_data(phone_number, data)
+                
+                # Strip JSON from response
+                clean_response = ai_response_text.replace(match.group(0), "").strip()
+                
+                # Add a dispatch confirmation if the clean response is empty
+                if not clean_response:
+                    clean_response = "Thank you. An ambulance has been dispatched to your location immediately. Please stay calm."
+                
+                ai_response_text = clean_response
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse AI JSON output: {e}")
+
+        # Final safety check before sending
+        if not ai_response_text or ai_response_text.strip() == "":
+            ai_response_text = "Thank you for the information. We are processing it."
+
+        # 5. Add assistant message to DB
+        await add_message_to_session(phone_number, "assistant", ai_response_text)
+
+        return ai_response_text
     except Exception as e:
         logger.error(f"Error generating AI reply: {e}")
         return "I'm having trouble connecting right now, but please send your location and details immediately so we can dispatch help."
