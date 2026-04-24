@@ -11,5 +11,6 @@ class Settings:
     VERIFY_TOKEN: str = os.getenv("VERIFY_TOKEN", "")
     AI_API_KEY: str = os.getenv("AI_API_KEY", "")
     MONGODB_URI: str = os.getenv("MONGODB_URI", "")
+    NGROK_URL: str = os.getenv("NGROK_URL", "")
 
 settings = Settings()
