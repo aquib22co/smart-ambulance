@@ -251,7 +251,7 @@ def build_dataset(df_accidents, le):
 
     df = pd.DataFrame(records)
     print(f"       {len(df):,} training rows generated.")
-    print(f"       ETA → mean: {df['eta_minutes'].mean():.1f} min | "
+    print(f"       ETA -> mean: {df['eta_minutes'].mean():.1f} min | "
           f"min: {df['eta_minutes'].min():.1f} | max: {df['eta_minutes'].max():.1f}")
     return df
 
@@ -283,11 +283,11 @@ def train(df):
     rmse = mean_squared_error(y_test, y_pred) ** 0.5
     r2   = r2_score(y_test, y_pred)
 
-    print(f"\n{'─'*40}")
+    print(f"\n{'-'*40}")
     print(f"  MAE  : {mae:.3f} minutes")
     print(f"  RMSE : {rmse:.3f} minutes")
-    print(f"  R²   : {r2:.4f}")
-    print(f"{'─'*40}\n")
+    print(f"  R2   : {r2:.4f}")
+    print(f"{'-'*40}\n")
 
     metrics = {"mae": round(mae, 4), "rmse": round(rmse, 4), "r2": round(r2, 4)}
     return model, metrics
@@ -344,9 +344,9 @@ def save_artifacts(model, le, metrics, output_dir):
     with open(meta_path, "w") as f:
         json.dump(meta, f, indent=2)
 
-    print(f"\n  ✅  model.pkl        → {model_path}")
-    print(f"  ✅  label_encoder.pkl → {le_path}")
-    print(f"  ✅  model_meta.json  → {meta_path}")
+    print(f"\n  SUCCESS: model.pkl        -> {model_path}")
+    print(f"  SUCCESS: label_encoder.pkl -> {le_path}")
+    print(f"  SUCCESS: model_meta.json  -> {meta_path}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -367,7 +367,7 @@ def main():
     args = parser.parse_args()
 
     print("\n======================================")
-    print("  Mumbai Ambulance ETA Model — Train")
+    print("  Mumbai Ambulance ETA Model - Train")
     print("======================================\n")
 
     # LabelEncoder for ambulance zones (fit before dataset build so we can use it)

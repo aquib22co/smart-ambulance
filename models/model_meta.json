@@ -1,0 +1,66 @@
+{
+  "version": "1.0.0",
+  "model_type": "GradientBoostingRegressor",
+  "features": [
+    "distance_km",
+    "severity",
+    "weather",
+    "light_conditions",
+    "road_surface",
+    "speed_limit",
+    "num_casualties",
+    "day_of_week",
+    "road_type",
+    "urban_rural",
+    "hour_of_day",
+    "is_rush_hour",
+    "is_night",
+    "is_weekend",
+    "is_available",
+    "fuel_level",
+    "crew_experience",
+    "amb_zone_enc"
+  ],
+  "n_estimators": 300,
+  "max_depth": 5,
+  "learning_rate": 0.08,
+  "metrics": {
+    "mae": 4.5639,
+    "rmse": 6.9294,
+    "r2": 0.9593
+  },
+  "zones": [
+    "South Mumbai",
+    "Central Mumbai",
+    "North Mumbai",
+    "Eastern Suburbs",
+    "Western Suburbs"
+  ],
+  "zone_encoding": {
+    "South Mumbai": 3,
+    "Central Mumbai": 0,
+    "North Mumbai": 2,
+    "Eastern Suburbs": 1,
+    "Western Suburbs": 4
+  },
+  "feature_dtypes": {
+    "distance_km": "float",
+    "severity": "int (1=Fatal, 2=Serious, 3=Slight)",
+    "weather": "int (1=Fine, 2=Rain, 5=Fog ...)",
+    "light_conditions": "int (1=Daylight, 4=Dark-lit, 5=Dark-unlit ...)",
+    "road_surface": "int (1=Dry, 2=Wet, 3=Snow ...)",
+    "speed_limit": "float (km/h)",
+    "num_casualties": "int",
+    "day_of_week": "int (1=Sunday ... 7=Saturday)",
+    "road_type": "int",
+    "urban_rural": "int (1=Urban, 2=Rural)",
+    "hour_of_day": "float (0.0\u201323.99)",
+    "is_rush_hour": "int (0 or 1)",
+    "is_night": "int (0 or 1)",
+    "is_weekend": "int (0 or 1)",
+    "is_available": "int (0 or 1)",
+    "fuel_level": "float (0.0\u20131.0)",
+    "crew_experience": "int (years)",
+    "amb_zone_enc": "int (encoded from label_encoder.pkl)"
+  }
+}
