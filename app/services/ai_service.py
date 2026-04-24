@@ -137,6 +137,12 @@ async def generate_reply(phone_number: str, user_message: str) -> str:
                 # Save to database
                 await save_accident_data(phone_number, data)
                 
+                # Trigger Ambulance Allocation & Dispatch
+                from app.services.dispatch_service import allocate_ambulance
+                import asyncio
+                # Run allocation in background to not block the AI response
+                asyncio.create_task(allocate_ambulance(phone_number, data))
+                
                 # Strip JSON from response
                 clean_response = ai_response_text.replace(match.group(0), "").strip()
                 
