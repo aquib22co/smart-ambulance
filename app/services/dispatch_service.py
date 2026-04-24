@@ -5,6 +5,7 @@ import pickle
 import os
 import pandas as pd
 from datetime import datetime
+from app.core.config import settings
 from app.services.memory_service import update_dispatch_status
 from app.services.whatsapp_service import send_whatsapp_message
 
@@ -170,12 +171,24 @@ async def allocate_ambulance(phone_number: str, accident_data: dict):
 
         # 4. Finalize Dispatch
         if selected_amb:
-            await update_dispatch_status(phone_number, selected_amb["ambulance_id"], selected_amb["predicted_eta"])
+            report_id = await update_dispatch_status(
+                phone_number, 
+                selected_amb["ambulance_id"], 
+                selected_amb["predicted_eta"],
+                selected_amb["lat"],
+                selected_amb["lon"],
+                acc_lat,
+                acc_lon
+            )
+            
+            tracking_url = f"{settings.NGROK_URL}/track/{report_id}" if report_id else "Unavailable"
+            
             msg = (
                 f"🚑 *AMBULANCE DISPATCHED*\n\n"
                 f"Ambulance *{selected_amb['ambulance_id']}* is on the way.\n"
                 f"⏱️ ML-Predicted Arrival: *{selected_amb['predicted_eta']} minutes*.\n\n"
-                f"Please stay calm. help is arriving."
+                f"📍 *Live Tracking:* {tracking_url}\n\n"
+                f"Please stay calm, help is arriving."
             )
             await send_whatsapp_message(phone_number, msg)
             return True

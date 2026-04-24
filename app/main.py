@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from app.api.routes import webhook
+from app.api.routes import webhook, tracking
 from app.db.database import connect_to_mongo, close_mongo_connection
 
 @asynccontextmanager
@@ -12,6 +12,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Smart Ambulance System API", lifespan=lifespan)
 
 app.include_router(webhook.router)
+app.include_router(tracking.router)
 
 @app.get("/")
 def read_root():
