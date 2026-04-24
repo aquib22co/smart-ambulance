@@ -59,28 +59,35 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
                 # Check if it contains messages
                 if "messages" in value:
                     for message in value["messages"]:
-                        # We only process text messages for now
-                        if message.get("type") == "text":
-                            msg_id = message.get("id")
+                        msg_id = message.get("id")
+                        
+                        # Deduplicate webhook retries
+                        if msg_id in processed_message_ids:
+                            logger.info(f"Duplicate message picked up and ignored: {msg_id}")
+                            continue
                             
-                            # Deduplicate webhook retries
-                            if msg_id in processed_message_ids:
-                                logger.info(f"Duplicate message picked up and ignored: {msg_id}")
-                                continue
-                            
-                            # Add to processed set
-                            processed_message_ids.add(msg_id)
-                            # Simple cleanup to prevent continuous memory growth
-                            if len(processed_message_ids) > 1000:
-                                processed_message_ids.clear()
-                                
-                            user_phone_number = message["from"]
+                        message_type = message.get("type")
+                        if message_type == "text":
                             text_body = message["text"]["body"]
+                        elif message_type == "location":
+                            lat = message["location"]["latitude"]
+                            lon = message["location"]["longitude"]
+                            text_body = f"User shared their location: Latitude {lat}, Longitude {lon}"
+                        else:
+                            continue
+                        
+                        # Add to processed set
+                        processed_message_ids.add(msg_id)
+                        # Simple cleanup to prevent continuous memory growth
+                        if len(processed_message_ids) > 1000:
+                            processed_message_ids.clear()
                             
-                            logger.info(f"Received message from {user_phone_number}: {text_body}")
-                            
-                            # Process message in background to return 200 OK to Meta immediately
-                            background_tasks.add_task(process_whatsapp_message, user_phone_number, text_body)
+                        user_phone_number = message["from"]
+                        
+                        logger.info(f"Received message from {user_phone_number}: {text_body}")
+                        
+                        # Process message in background to return 200 OK to Meta immediately
+                        background_tasks.add_task(process_whatsapp_message, user_phone_number, text_body)
                             
         return {"status": "success"}
 

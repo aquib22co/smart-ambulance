@@ -3,6 +3,7 @@ from app.core.config import settings
 import logging
 import json
 import re
+from datetime import datetime, timezone
 from app.services.memory_service import get_chat_history, add_message_to_session, save_accident_data
 
 logger = logging.getLogger(__name__)
@@ -17,8 +18,8 @@ client = AsyncOpenAI(
 SYSTEM_PROMPT = """
 You are a helpful triage assistant for a 'Rapid Care' smart ambulance system. 
 Your goal is to gather the following details from the reporter:
-- location
-- landmark
+- longitude
+- latitude
 - injured_count (number)
 - accident_type
 - conscious (yes/no)
@@ -36,7 +37,7 @@ RULES:
 CRITICAL OPTIMIZED FLOW:
 If a CRITICAL condition is detected (e.g., unconscious, not breathing, heavy bleeding):
 - You MUST SKIP the remaining optional questions (accident_type, injury_type, mobility).
-- HOWEVER, you CANNOT skip 'location', 'landmark', and 'injured_count'. You must gather these 3 fields even if it is a critical emergency.
+- HOWEVER, you CANNOT skip 'longitude', 'latitude', and 'injured_count'. Ask the user to send their WhatsApp location if they haven't already. You must gather these 3 fields even if it is a critical emergency.
 - Once you have the 3 mandatory fields AND (either all fields OR a critical condition is met), stop asking questions.
 
 WHEN YOU ARE READY TO DISPATCH (i.e. you have all info OR hit the critical flow with mandatory fields):
@@ -44,15 +45,15 @@ You MUST output a JSON block in your response containing the gathered data.
 The JSON block MUST be formatted EXACTLY like this (use your gathered data):
 ```json
 {
-  "location": "...",
+  "longitude": "...",
+  "latitude": "...",
   "accident_type": "...",
   "injured_count": 2,
   "conscious": "no",
   "breathing_status": "yes",
   "bleeding_status": "heavy",
   "injury_type": "head injury",
-  "mobility": "no",
-  "landmark": "near metro station"
+  "mobility": "no"
 }
 ```
 If you haven't gathered enough details to dispatch yet, do NOT output the JSON block, just ask the next question.
@@ -101,6 +102,11 @@ async def generate_reply(phone_number: str, user_message: str) -> str:
             json_str = match.group(1)
             try:
                 data = json.loads(json_str)
+                # Add timestamp of accident when it was reported
+                now = datetime.now()
+                decimal_hour = now.hour + (now.minute / 60.0) + (now.second / 3600.0)
+                data["timestamp_of_accident"] = round(decimal_hour, 2)
+                
                 # Save to database
                 await save_accident_data(phone_number, data)
                 
