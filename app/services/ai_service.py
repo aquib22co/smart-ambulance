@@ -121,6 +121,19 @@ async def generate_reply(phone_number: str, user_message: str) -> str:
                 decimal_hour = now.hour + (now.minute / 60.0) + (now.second / 3600.0)
                 data["timestamp_of_accident"] = round(decimal_hour, 2)
                 
+                # Calculate severity
+                conscious = str(data.get("conscious", "")).lower()
+                breathing = str(data.get("breathing_status", "")).lower()
+                bleeding = str(data.get("bleeding_status", "")).lower()
+                mobility = str(data.get("mobility", "")).lower()
+
+                if conscious == "no" or breathing == "no" or bleeding == "heavy":
+                    data["severity"] = 1 # Fatal
+                elif bleeding == "moderate" or mobility == "no":
+                    data["severity"] = 2 # Serious
+                else:
+                    data["severity"] = 3 # Slight
+                
                 # Save to database
                 await save_accident_data(phone_number, data)
                 

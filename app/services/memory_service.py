@@ -54,7 +54,8 @@ async def save_accident_data(phone_number: str, data: dict) -> bool:
         report = {
             "phone_number": phone_number,
             "data": data,
-            "status": "dispatched"
+            "status": "in-progress",
+            "severity": data.get("severity")
         }
         
         await db.accident_reports.insert_one(report)
